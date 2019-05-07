@@ -1,0 +1,4 @@
+{
+    "ssl_certfile": "ssl/cert.pem",
+    "ssl_keyfile": "ssl/key.pem"
+}

@@ -1,0 +1,93 @@
+#!/bin/bash
+#
+# Copyright 2017 Alexandru Catrina
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cwd=$(pwd)
+res=$cwd/res
+data=$res/data
+pkgs=$res/packages
+pkg=$(date +"%Y%m%d")
+nova=nova-engine
+build=build/$nova
+user=$(whoami)
+
+if [ "x$1" = "xinstall" ]; then
+    $build -v > /dev/null
+    if [ $? -ne 0 ]; then
+        echo "Nova is not installed! Run bin/build and try again" && exit 1
+    fi
+    if [ $EUID -eq 0 ]; then
+        echo "Installing Nova... (running as root)"
+        cp $build /usr/local/bin/$nova
+    else
+        echo "Installing Nova... (running as $user)"
+        cp $build /home/$user/bin/$nova
+    fi
+fi
+
+if [ -z "$NOVA_DB" ]; then
+    if [ $EUID -eq 0 ]; then
+        dir=/var/nova
+    else
+        dir=$HOME/.nova
+    fi
+    echo "Setting up environments..."
+    mkdir -p $dir && touch $dir/.db
+    export NOVA_DB=$dir/.db
+fi
+
+echo "Resource data lookup..."
+if [ ! -d $data ]; then
+    echo "Resource directory is missing" && exit 1
+fi
+
+mkdir -p $pkgs && cd $data
+ls *.zip > /dev/null 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "Removing old temp files" && rm *.zip
+fi
+
+echo "Creating package..."
+zip -r $pkg .
+
+echo "Deploying package..."
+if [ -f $pkgs/$pkg ]; then
+    echo "A package named \"$pkg\" already exists"
+    read -p "Overwrite it? [y/N] " yn
+    case $yn in
+        y) mv $pkg.zip $pkgs/$pkg
+        ;;
+        *) mv $pkg.zip $pkgs/$pkg.2 && pkg=$pkg.2
+        ;;
+    esac
+else
+    mv $pkg.zip $pkgs/$pkg
+fi
+cd $cwd
+
+echo "You can install the latest package..."
+echo -ne RUN:\\t$nova -vu $pkgs/$pkg\\n
+echo ""
+read -p "Press any key to update now or hit ^C to exit " anykey
+
+$nova -vu $pkgs/$pkg
+
+echo ""
+if [ $? -ne 0 ]; then
+    echo "Nova is not installed! Run bin/build and try again"
+else
+    echo "Successfully installed and updated Nova! Try it: $nova -h"
+fi

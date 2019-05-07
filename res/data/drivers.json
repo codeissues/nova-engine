@@ -1,0 +1,10 @@
+{
+    "firefox": {
+        "browser": ["firefox", "/usr/bin/firefox"],
+        "driver": ["geckodriver", "/usr/local/bin/geckodriver"]
+    },
+    "chrome": {
+        "browser": ["google-chrome", "/opt/google/chrome/google-chrome"],
+        "driver": ["chromedriver", "/usr/local/bin/chromedriver"]
+    }
+}

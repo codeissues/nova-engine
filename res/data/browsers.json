@@ -1,0 +1,27 @@
+{
+    "firefox": {
+        "args": "",
+        "engine": "gecko",
+        "download": "https://www.mozilla.org/en-US/firefox/"
+    },
+    "chrome": {
+        "args": "--no-sandbox --disable-setuid-sandbox",
+        "engine": "blink",
+        "download": "https://www.google.com/chrome/browser/desktop/index.html"
+    },
+    "chromium": {
+        "args": "",
+        "engine": "blink",
+        "download": "https://www.chromium.org/getting-involved/download-chromium"
+    },
+    "opera": {
+        "args": "",
+        "engine": "blink",
+        "download": "https://www.opera.com/ro/download"
+    },
+    "edge": {
+        "args": "",
+        "engine": "trident",
+        "download": ""
+    }
+}

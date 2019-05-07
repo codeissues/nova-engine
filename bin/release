@@ -1,0 +1,164 @@
+#!/bin/bash
+#
+# Copyright 2017 Alexandru Catrina
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cwd=$(pwd)
+app=nova
+user=$(whoami)
+nova=nova-engine
+
+$nova -v > /dev/null
+if [ $? -ne 0 ]; then
+    echo "Nova is not installed! Run bin/deploy and try again" && exit 1
+fi
+
+if [ $EUID -eq 0 ]; then
+    release=/usr/local/bin/$app
+    dbdir=/var/nova
+else
+    release=/home/$user/bin/$app
+    dbdir=/home/$user/.nova
+fi
+
+mkdir -p $dbdir && touch $dbdir/.db
+
+read -r -d "" bins << EOF
+#!/bin/bash
+
+export NOVA_PATH=`which $nova`
+export NOVA_DB=$dbdir/.db
+
+EOF
+
+echo "Installing latest Nova release..."
+cat > $release <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    echo "Usage:"
+    echo "  help          - print help message"
+    echo "  scan          - scan system for dependencies"
+    echo "  analyze       - analyze task before working"
+    echo "  learn-chrome  - learning session with chrome"
+    echo "  learn-firefox - learning session with firefox"
+    echo "  repl-chrome   - REPL session with headless chrome"
+    echo "  repl-firefox  - REPL session with headless firefox"
+    echo "  work-gui      - work on task with GUI (no record)"
+    echo "  work-headless - work on task and record (no GUI)"
+    echo "  work-silent   - work on task and record (no output)"
+    echo "  net           - launch net interface"
+    exit 1
+fi
+
+case \$1 in
+    help) $nova -h
+    ;;
+    scan) $nova -vs
+    ;;
+    analyze) {
+        if [ -z \$2 ]; then
+            echo "Missing nvs-file argument" && exit 1
+        fi
+        $nova -va \$2
+    }
+    ;;
+    update) {
+        if [ -z \$2 ]; then
+            echo "Missing pkg-file argument" && exit 1
+        fi
+        $nova -vu \$2
+    }
+    ;;
+    learn-chrome) {
+        if [ -z \$2 ]; then
+            echo "Missing url argument" && exit 1
+        fi
+        $nova -vlR --starturl \$2 --browser Chrome --resolution 1366x768 \\
+            --minify-ui --session /tmp/nova/learning_chrome --merge-session \\
+            --review-shell
+    }
+    ;;
+    learn-firefox) {
+        if [ -z \$2 ]; then
+            echo "Missing url argument" && exit 1
+        fi
+        $nova -vlR --starturl \$2 --browser Firefox --resolution 1366x768 \\
+            --minify-ui --session /tmp/nova/learning_firefox --merge-session \\
+            --review-shell
+    }
+    ;;
+    repl-chrome) {
+        if [ -z \$2 ]; then
+            echo "Missing url argument" && exit 1
+        fi
+        $nova -vi --browser Chrome --starturl \$2
+    }
+    ;;
+    repl-firefox) {
+        if [ -z \$2 ]; then
+            echo "Missing url argument" && exit 1
+        fi
+        $nova -vi --browser Firefox --starturl \$2
+    }
+    ;;
+    work-gui) {
+        if [ -z \$2 ]; then
+            echo "Missing task argument" && exit 1
+        fi
+        save=\$(date +"%N").mp4
+        video=".*\/(.+).nvs\$"
+        if [[ \$2 =~ \$video ]]; then
+            save="\${BASH_REMATCH[1]}".mp4
+        fi
+        $nova -vt \$2 --record /tmp/nova/video/\$save --fps 16 --review-shell
+    }
+    ;;
+    work-headless) {
+        if [ -z \$2 ]; then
+            echo "Missing task argument" && exit 1
+        fi
+        save=\$(date +"%N").mp4
+        video=".*\/(.+).nvs\$"
+        if [[ \$2 =~ \$video ]]; then
+            save="\${BASH_REMATCH[1]}".mp4
+        fi
+        $nova -vt \$2 --record /tmp/nova/video/\$save --fps 16 --review-shell --headless
+    }
+    ;;
+    work-silent) {
+        if [ -z \$2 ]; then
+            echo "Missing task argument" && exit 1
+        fi
+        save=\$(date +"%N").mp4
+        video=".*\/(.+).nvs\$"
+        if [[ \$2 =~ \$video ]]; then
+            save="\${BASH_REMATCH[1]}".mp4
+        fi
+        $nova -St \$2 --record /tmp/nova/video/\$save --fps 16 --headless
+    }
+    ;;
+    net) {
+        nova-net > /dev/null 2>&1
+        if [ \$? -ne 0 ]; then
+            echo "Nova network interface is not installed!" && exit 1
+        fi
+        nova-net \$2 \$3
+    }
+    ;;
+esac
+
+EOF
+
+chmod +x $release && echo "Try it... $app"

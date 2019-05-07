@@ -1,0 +1,13 @@
+.notes
+.nvdb
+.db
+src/**/*.pyc
+src/**/*.pyo
+build/
+dump/
+run/
+test/
+ssl/
+res/samples/
+res/packages/
+nova.log

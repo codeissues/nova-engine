@@ -1,0 +1,30 @@
+{
+    "load": {
+        "getter": "(function(e){return new Date().getTime();}(e))",
+        "setter": "null"
+    },
+    "click": {
+        "getter": "(function(e) { 'use strict';if (e instanceof Element) { var path=[];while (e.nodeType === Node.ELEMENT_NODE) { var selector=e.nodeName.toLowerCase();if (e.id) { selector += '#' + e.id;path.unshift(selector);break;} else { var sib=e, nth=1;while (sib=sib.previousElementSibling) { if (sib.nodeName.toLowerCase() == selector) { nth++;} } if (nth != 1) { selector += ':nth-of-type(' + nth + ')';} } path.unshift(selector);e=e.parentNode;} return path.join('>');} return;}(e))",
+        "setter": "(function(x, y, d) { 'use strict';var e=document.elementFromPoint(x, y);var m=d ? document.querySelector(d) : null;if (e && e.id == 'mouse__pointer' && m instanceof Element) { return m.click();} if (e instanceof Element) { return e.click();} if (m instanceof Element) { return m.click();} }($clientX, $clientY, '$data'))"
+    },
+    "mousedown": {
+        "getter": "null",
+        "setter": "(function(x, y) { 'use strict';var n=document.getElementById('mouse__pointer'), e;if (n) { var w=n.style.width;var h=n.style.height;n.style.width=(n.offsetWidth - 0.1 * n.offsetWidth) + 'px';n.style.height=(n.offsetHeight - 0.1 * n.offsetHeight) + 'px';setTimeout(function () { n.style.width=w;n.style.height=h;}, 250);n.style.display='none';e=document.elementFromPoint(x, y);n.style.display='block';} try { e.click();} catch (e) {} dispatchEvent(new MouseEvent('mousedown', { clientX: x, clientY: y, view: window, bubbles: true }));}($clientX, $clientY))"
+    },
+    "mouseup": {
+        "getter": "null",
+        "setter": "null"
+    },
+    "scroll": {
+        "getter": "window.scrollY",
+        "setter": "window.scrollTo(0, $data)"
+    },
+    "keydown": {
+        "getter": "(function(e) { 'use strict';var target=e.target;var xpath=[];function buildXPath() { var p=xpath.join('/');return '//*' + (p.substr(0, 1).match(/[a-zA-Z]/) == null ? '' : '/') + p;} function isTargetXPath() { if (xpath.length > 0) { var p=buildXPath();return target === document.evaluate(p, document, null, 9, null).singleNodeValue;} return false;} function getXPath(e) { if (e.id) { xpath.unshift(e.tagName + '[@id=\"' + e.id + '\"]');if (isTargetXPath()) { return buildXPath();} return getXPath(e.parentNode);} if (e === document.body) { xpath.unshift(e.tagName);return buildXPath();} var k=0, cn=e.parentNode.childNodes;for (var i=0;i < cn.length;i++) { var s=cn[i];if (s === e) { xpath.unshift(e.tagName + '[' + (k + 1) + ']');return getXPath(e.parentNode);} else if (s.nodeType === 1 && s.tagName === e.tagName) { k++;} } } return getXPath(e.target) + ';' + (e.code ? e.code : '') + ';' + (e.key ? e.key.toString().charCodeAt(0) : '');}(e))",
+        "setter": "(function(v) { 'use strict';v=v.match(/(.*?);(.*);(.*)/);if (v == null || v.length < 3) { return;} else { var path=v[1], code=v[2], char=v[3];} try { var e=document.evaluate(path, document, null, 9, null).singleNodeValue;if (!e) return;} catch (e) { return;} var k=String.fromCharCode(char);if (/Key[A-Z]$|Digit[0-9]$|Minus|Equal|BracketLeft|BracketRight|Semicolon|Quote|Backquote|Backslash|Comma|Period|Slash|Space/.test(code)) { e.value += k;} else if (code == 'Backspace') { var s=e.value.split('');s.pop();e.value=s.join('');} else if (code == 'Enter' && e.tagName == 'INPUT' && e.form) e.form.submit();dispatchEvent(new KeyboardEvent('keydown', { key: k, view: window, bubbles: true }));}('$data'))"
+    },
+    "mousemove": {
+        "getter": "null",
+        "setter": "(function(x, y, D) { 'use strict';var n=document.getElementById('mouse__pointer');if (n == null) { n=document.createElement('div');document.body.appendChild(n);n.id='mouse__pointer';n.style.position='fixed';n.style.width=D + 'px';n.style.height=D + 'px';n.style.background='#fff';n.style.borderRadius='50px';n.style.border='3px solid #384c8c';n.style.zIndex=2147483647;} n.style.top=(parseInt(y) - D / 2) + 'px';n.style.left=(parseInt(x) - D / 2) + 'px';dispatchEvent(new MouseEvent('mousemove', { clientX: x, clientY: y, view: window, bubbles: true }));}($clientX, $clientY, 16))"
+    }
+}

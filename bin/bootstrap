@@ -1,0 +1,404 @@
+#!/bin/bash
+#
+# Copyright 2017 Alexandru Catrina
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+cwd=$(pwd)
+nova=nova-engine
+run_dir="run"
+test_dir="test"
+build=$(pwd)/build
+
+echo "Cleaning previous directories..."
+rm -rf "$run_dir" "$test_dir"
+
+echo "Creating directories..."
+mkdir -p "$run_dir" "$test_dir"
+
+read -r -d "" bins << EOF
+#!/bin/bash
+
+build=\$(pwd)/build
+
+if [ ! -d \$build ]; then
+    echo "Nova build binaries not found!" && exit 1
+fi
+EOF
+
+echo "Creating runnable help file..."
+cat > $run_dir/help <<EOF
+$bins
+
+\$build/nova -h
+EOF
+
+echo "Creating runnable scan file..."
+cat > $run_dir/scan <<EOF
+$bins
+
+\$build/nova -sv
+EOF
+
+echo "Creating runnable analyze file..."
+cat > $run_dir/analyze <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    echo "Provide a nvs file to analyze" && exit 1
+fi
+
+\$build/nova -va \$1
+EOF
+
+echo "Creating runnable update file..."
+cat > $run_dir/update <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    echo "Provide an update package" && exit 1
+fi
+
+\$build/nova -vu \$1
+EOF
+
+echo "Creating runnable repl-firefox file..."
+cat > $run_dir/repl-firefox <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    url="http://playground.codeissues.net/pages/index.html"
+else
+    url="\$1"
+fi
+
+\$build/nova -vi --browser Firefox --starturl \$url
+EOF
+
+echo "Creating runnable repl-chrome file..."
+cat > $run_dir/repl-chrome <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    url="http://playground.codeissues.net/pages/index.html"
+else
+    url="\$1"
+fi
+
+\$build/nova -vi --browser Chrome --starturl \$url
+EOF
+
+echo "Creating runnable work-headless file..."
+cat > $run_dir/work-headless <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    echo "Provide a task to work" && exit 1
+fi
+
+save=\$(date +"%N").mp4
+video=".*\/(.+).nvs\$"
+if [[ \$1 =~ \$video ]]; then
+    save="\${BASH_REMATCH[1]}".mp4
+fi
+
+\$build/nova -vt \$1 --record /tmp/nova/video/\$save --fps 16 --review-shell --headless
+EOF
+
+echo "Creating runnable work-silent file..."
+cat > $run_dir/work-silent <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    echo "Provide a task to work" && exit 1
+fi
+
+save=\$(date +"%N").mp4
+video=".*\/(.+).nvs\$"
+if [[ \$1 =~ \$video ]]; then
+    save="\${BASH_REMATCH[1]}".mp4
+fi
+
+\$build/nova -St \$1 --record /tmp/nova/video/\$save --fps 16 --headless
+EOF
+
+if [ "x$DISPLAY" != "x" ]; then
+    echo "Creating runnable work-gui file..."
+    cat > $run_dir/work-gui <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    echo "Provide a task to work" && exit 1
+fi
+
+save=\$(date +"%N").mp4
+video=".*\/(.+).nvs\$"
+if [[ \$1 =~ \$video ]]; then
+    save="\${BASH_REMATCH[1]}".mp4
+fi
+
+\$build/nova -vt \$1 --record /tmp/nova/video/\$save --fps 16 --review-shell
+EOF
+
+    echo "Creating runnable learn-chrome file..."
+    cat > $run_dir/learn-chrome <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    url="http://playground.codeissues.net/pages/index.html"
+else
+    url="\$1"
+fi
+
+# This is the most popular resolution used by 29.94% of web users (May 2017)
+# https://en.wikipedia.org/wiki/Display_resolution#Common_display_resolutions
+\$build/nova -vlR --starturl \$url --browser Chrome --resolution 1366x768 \\
+    --minify-ui --session /tmp/nova/learning_session --review-shell --merge-session
+EOF
+
+    echo "Creating runnable learn-firefox file..."
+    cat > $run_dir/learn-firefox <<EOF
+$bins
+
+if [ -z \$1 ]; then
+    url="http://playground.codeissues.net/pages/index.html"
+else
+    url="\$1"
+fi
+
+# This is the most popular resolution used by 29.94% of web users (May 2017)
+# https://en.wikipedia.org/wiki/Display_resolution#Common_display_resolutions
+\$build/nova -vlR --starturl \$url --browser Firefox --resolution 1366x768 \\
+    --minify-ui --session /tmp/nova/learning_session --review-shell --merge-session
+EOF
+
+echo "Creating test firefox file..."
+cat > $test_dir/firefox <<EOF
+#!/bin/bash
+
+export NOVA_DB=/tmp/nova/.db
+
+LOADING_TIME="10"
+nova=build/$nova
+
+if [ -z \$1 ]; then
+    url="http://playground.codeissues.net/pages/index.html"
+else
+    url="\$1"
+fi
+
+if [[ \$url =~ https?:\/\/([a-zA-Z1-9\.\-]+).* ]]; then
+    output_folder="\${BASH_REMATCH[1]}"
+else
+    echo "Cannot determine output folder" && exit 1
+fi
+
+loading () {
+    if [ ! -z \$2 ]; then
+        x=\$2
+    else
+        x=\$LOADING_TIME
+    fi
+    echo "\$1"
+    for i in \$(seq 1 \$x); do
+        if [ "\$i" -lt "\$x" ]; then
+            echo -ne Starting in \$(expr \$x - \$i) seconds \\\\r
+            sleep 1
+        fi
+    done
+}
+
+\$nova
+
+echo "Nova is installed on this system!"
+echo "This is a testing mode. You can exit anytime with ^C"
+echo ""
+echo "Test will run Nova with Firefox browser through these steps:"
+echo "[1] scanning"
+echo "[2] updating"
+echo "[3] learning"
+echo "[4] working"
+echo "[5] working headless"
+echo "[6] view video"
+echo ""
+
+loading "1. Running scan on system"
+\$nova -vs
+
+package=\$(ls -t res/packages | head -1)
+if [ -f res/packages/\$package ]; then
+    loading "2. Running an update"
+    \$nova -vu res/packages/\$package
+else
+    echo "2. No updates found on system. Next step..."
+fi
+
+session=/tmp/nova/test_session/firefox
+loading "3. Running a learning session. Are you ready?"
+\$nova -vlR --browser Firefox --resolution 770x460 --minify-ui \\
+    --starturl \$url --session \$session
+
+scripts=\$session/\$(date +"%Y-%m-%d")/\$output_folder
+nvs=\$(ls -t \$scripts | head -1)
+output=/tmp/nova/test_output/\$(date +"%s").mp4
+
+if [ -f \$scripts/\$nvs ]; then
+    loading "4. Reviewing previous learning session (working mode, no record)"
+    \$nova -va \$scripts/\$nvs
+    \$nova -vt \$scripts/\$nvs
+    loading "5. Creating video of previous task (working mode, recording at 16 FPS)"
+    \$nova -vt \$scripts/\$nvs --headless --record \$output --fps 16
+else
+    echo "4. Cannot find any nvs scripts to run... Exiting" && exit 0
+fi
+
+if [ -f \$output ]; then
+    loading "6. Opening video..."
+    xdg-open \$output
+else
+    echo "6. Failed to find generated video..."
+fi
+EOF
+
+echo "Creating test chrome file..."
+cat > $test_dir/chrome <<EOF
+#!/bin/bash
+
+export NOVA_DB=/tmp/nova/.db
+
+LOADING_TIME="10"
+nova=build/$nova
+
+if [ -z \$1 ]; then
+    url="http://playground.codeissues.net/pages/index.html"
+else
+    url="\$1"
+fi
+
+if [[ \$url =~ https?:\/\/([a-zA-Z1-9\.\-]+).* ]]; then
+    output_folder="\${BASH_REMATCH[1]}"
+else
+    echo "Cannot determine output folder" && exit 1
+fi
+
+loading () {
+    if [ ! -z \$2 ]; then
+        x=\$2
+    else
+        x=\$LOADING_TIME
+    fi
+    echo "\$1"
+    for i in \$(seq 1 \$x); do
+        if [ "\$i" -lt "\$x" ]; then
+            echo -ne Starting in \$(expr \$x - \$i) seconds \\\\r
+            sleep 1
+        fi
+    done
+}
+
+\$nova
+
+echo "Nova is installed on this system!"
+echo "This is a testing mode. You can exit anytime with ^C"
+echo ""
+echo "Test will run Nova with Chrome browser through these steps:"
+echo "[1] scanning"
+echo "[2] updating"
+echo "[3] learning"
+echo "[4] working"
+echo "[5] working headless"
+echo "[6] view video"
+echo ""
+
+loading "1. Running scan on system"
+\$nova -vs
+
+package=\$(ls -t res/packages | head -1)
+if [ -f res/packages/\$package ]; then
+    loading "2. Running an update"
+    \$nova -vu res/packages/\$package
+else
+    echo "2. No updates found on system. Next step..."
+fi
+
+session=/tmp/nova/test_session/chrome
+loading "3. Running a learning session. Are you ready?"
+\$nova -vlR --browser Chrome --resolution 770x460 --minify-ui \\
+    --starturl \$url --session \$session
+
+scripts=\$session/\$(date +"%Y-%m-%d")/\$output_folder
+nvs=\$(ls -t \$scripts | head -1)
+output=/tmp/nova/test_output/\$(date +"%s").mp4
+
+if [ -f \$scripts/\$nvs ]; then
+    loading "4. Reviewing previous learning session (working mode, no record)"
+    \$nova -va \$scripts/\$nvs
+    \$nova -vt \$scripts/\$nvs
+    loading "5. Creating video of previous task (working mode, recording at 16 FPS)"
+    \$nova -vt \$scripts/\$nvs --headless --record \$output --fps 16
+else
+    echo "4. Cannot find any nvs scripts to run... Exiting" && exit 0
+fi
+
+if [ -f \$output ]; then
+    loading "6. Opening video..."
+    xdg-open \$output
+else
+    echo "6. Failed to find generated video..."
+fi
+EOF
+
+fi
+
+echo "Creating test samples file..."
+cat > $test_dir/samples <<EOF
+$bins
+
+samples=res/samples
+output=/tmp/nova/test_samples
+logfile=/tmp/nova/nova.log
+
+mkdir -p \$output
+if [ -f \$logfile ]; then
+    rm \$logfile
+fi
+
+if [ ! -d \$samples ]; then
+    echo" No samples found. Exiting now..." && exit 1
+fi
+
+for s in \$(ls \$samples); do
+    save=\$(date +"%N").mp4
+    video=".*\/(.+).nvs\$"
+    if [[ \$s =~ \$video ]]; then
+        save="\${BASH_REMATCH[1]}".mp4
+    fi
+    \$build/$nova -vt \$samples/\$s --record \$output/\$save --fps 16 --headless --logfile \$logfile
+done
+EOF
+
+echo "Scripts almost ready..."
+chmod +x -R "$run_dir"
+chmod +x -R "$test_dir"
+
+echo "All done!"
+echo ""
+echo "You can run the following scripts:"
+for f in $(ls $run_dir); do
+    echo -ne RUN:\\trun/$f\\n
+done
+echo ""
+echo "You can test the following scripts:"
+for f in $(ls $test_dir); do
+    echo -ne TEST:\\ttest/$f\\n
+done
